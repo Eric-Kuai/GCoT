@@ -1,6 +1,6 @@
 # Introduction
 We provide the code (in pytorch) and datasets for our paper 
-[**"GCoT"**](url), which is accepted by KDD2025.
+[**"GCoT"**](url)
 
 ## Description
 The repository is organised as follows:
@@ -43,6 +43,3 @@ IF_PRETRAIN = 0
 ```
 In the folder "COT_graph", run:
 - python execute.py
- 
-## Citation
-xxx
