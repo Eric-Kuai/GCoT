@@ -1,6 +1,6 @@
 # Introduction
 We provide the code (in pytorch) and datasets for our paper 
-[**"GCoT: Chain-of-Thought Prompt Learning for Text-Free Graphs"**](url)
+[**"GCoT: Chain-of-Thought Prompt Learning for Graphs"**](url)
 
 ## Description
 The repository is organised as follows:
