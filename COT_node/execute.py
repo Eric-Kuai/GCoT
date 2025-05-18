@@ -45,8 +45,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # there are 8 available datasets in total
 Planetoid_datasets = ['Cora', 'Citeseer', 'Pubmed']
 Amazon_datasets = ['Photo']
-WebKB_datasets = ['Wisconsin']
-WikipediaNetwork_datasets = ['Squirrel']
+WebKB_datasets = ['Wisconsin', 'Cornell']
+WikipediaNetwork_datasets = ['Squirrel', 'Chameleon']
 def load_dataset(name):
     if name in Planetoid_datasets:
         dataset = Planetoid(root='data', name=name)
@@ -80,7 +80,7 @@ save_name = os.path.join(save_dir, f'model_node_{pretrain_dataset}.pkl')
 # --------------------
 
 pretrain_layers_num = 3
-pretrain_epoch = 100
+pretrain_epoch = 1000
 pretrain_lr = 0.0001
 hid_units = 256
 patience = 20
@@ -132,14 +132,15 @@ print('Downastream dataset: ', args.dataset)
 print(f'loading model from {save_name}')
 
 shotnum = 1               # k-shot
-downstreamlr = 0.001
-condition_hid_dim = 32    # CN hidden dim
+downstreamlr = 0.001      # learning rate
+condition_hid_dim = 128   # CN hidden dim
 condition_layer_num = 1   # CN layers
 think_layer_num = 1       # think layers - 1
 task_num = 100
-down_epoch = 200
+down_epoch = 50
 patience = 20
 best = 1e9
+
 print('-' * 100)
 
 np.random.seed(seed)
@@ -166,7 +167,6 @@ for step, data in enumerate(pretrain_loaders):
     # load testset
     idx_test = torch.load("data/fewshot_{}_node/{}-shot/testset/index.pt".format(args.dataset.lower(), shotnum)).squeeze().type(torch.long).cuda()
     test_lbls = torch.load("data/fewshot_{}_node/{}-shot/testset/labels.pt".format(args.dataset.lower(), shotnum)).squeeze().type(torch.long).squeeze().cuda()
-    log = downprompt(hid_units, condition_hid_dim, feature_dim, nb_classes, think_layer_num, condition_layer_num)
     print("shotnum", shotnum)
 
     for i in tqdm(range(task_num)):
@@ -177,6 +177,7 @@ for step, data in enumerate(pretrain_loaders):
         print("task number:", i)
         print("train node index:", idx_train)
         print("train labels:", train_lbls)
+        log = downprompt(hid_units, condition_hid_dim, feature_dim, nb_classes, think_layer_num, condition_layer_num)
         opt = torch.optim.Adam([{'params': log.parameters()}], lr=downstreamlr)
         log = log.cuda()
         cnt_wait = 0
