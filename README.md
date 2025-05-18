@@ -1,6 +1,6 @@
 # Introduction
 We provide the code (in pytorch) and datasets for our paper 
-**"GCoT: Chain-of-Thought Prompt Learning for Graphs"** accepted by SIGKDD 2025.
+**"GCoT: Chain-of-Thought Prompt Learning for Graphs"** accepted by *SIGKDD* 2025.
 
 ## Description
 The repository is organised as follows:
