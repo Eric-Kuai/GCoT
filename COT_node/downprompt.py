@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 import torch_scatter
-from torch_geometric.nn.inits import glorot
 
 from models import DGI, GraphCL
 from layers import AvgReadout
@@ -44,7 +43,6 @@ class downprompt(nn.Module):
         super(downprompt, self).__init__()
         self.nb_classes = nb_classes
         self.ave = torch.FloatTensor(nb_classes, in_dim).cuda()
-        self.embed_prompt = Embed_prompt(in_dim)
 
         # Condition Net
         self.condition_layers = nn.ModuleList([ConditionNet(in_dim, hid_dim, out_dim, condition_layer_num) for _ in range(think_layer_num)])
@@ -52,9 +50,12 @@ class downprompt(nn.Module):
         self.think_layer_num = think_layer_num
 
         # please refer to ablation experiment
-        self.gcn_weight1 = nn.Parameter(torch.tensor(0.0), requires_grad=False)
-        self.gcn_weight2 = nn.Parameter(torch.tensor(1.0), requires_grad=True)
+        self.gcn_weight1 = nn.Parameter(torch.tensor(1.0), requires_grad=True)
+        self.gcn_weight2 = nn.Parameter(torch.tensor(0.0), requires_grad=False)
         self.gcn_weight3 = nn.Parameter(torch.tensor(0.0), requires_grad=False)
+
+        # resnet weights
+        self.res_weights = nn.Parameter(torch.ones(think_layer_num))
 
     def forward(self, x, edge_index, gcn, idx, labels, train):        
         origin_x = x
@@ -63,19 +64,18 @@ class downprompt(nn.Module):
         weight3 = self.gcn_weight3
 
         # each gcn layer has its own weight
-        for condition_net in self.condition_layers:
+        for i, condition_net in enumerate(self.condition_layers):
             embed_1 = gcn.convs[0](x, edge_index)
             embed_2 = gcn.convs[1](embed_1, edge_index) + embed_1
             embed_3 = gcn.convs[2](embed_2, edge_index) + embed_2
             embed = weight1 * embed_1 + weight2 * embed_2 + weight3 * embed_3
             prompt = condition_net(embed)
-            x = prompt * origin_x
-        
-        embed = gcn(x, edge_index)
-        embed = self.embed_prompt(embed)
+            x = origin_x + self.res_weights[i] * (prompt * origin_x)
 
-        rawret = embed[idx].cuda()  # rawret: idx_num x 256
+        embed = gcn(x, edge_index)
+        rawret = embed[idx].cuda() # rawret: idx_num x 256
         num = rawret.shape[0]
+
         if train == 1:
             self.ave = torch_scatter.scatter(src=rawret, index=labels, dim=0, reduce='mean')
         ret = torch.FloatTensor(num, self.nb_classes).cuda()
@@ -91,20 +91,3 @@ class downprompt(nn.Module):
             torch.nn.init.xavier_uniform_(m.weight.data)
             if m.bias is not None:
                 m.bias.data.fill_(0.0)
-
-class Embed_prompt(nn.Module):
-    def __init__(self, in_channels: int):
-        super(Embed_prompt, self).__init__()
-        self.p_list = nn.Parameter(torch.Tensor(5, in_channels))
-        self.a = nn.Linear(in_channels, 5)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        glorot(self.p_list)
-        self.a.reset_parameters()
-
-    def forward(self, x: Tensor):
-        score = self.a(x)
-        weight = F.softmax(score, dim=1)
-        p = weight.mm(self.p_list)
-        return x + p
